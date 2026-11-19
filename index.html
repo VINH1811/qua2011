@@ -363,9 +363,9 @@ dialog.lightbox .x-close { position: fixed; top: calc(12px + env(safe-area-inset
   border-radius: 6px;
   box-shadow: 0 40px 90px rgba(0,0,0,.65), 0 0 60px rgba(245,194,59,.15);
   opacity: 0; transform: translateY(60px) scale(.85); pointer-events: none;
-  transition: opacity .6s .35s, transform .7s .35s cubic-bezier(.2,.9,.25,1);
+  transition: opacity .35s ease, transform .4s ease;
 }
-.panel-letter.reading .paper-card { opacity: 1; transform: none; pointer-events: auto; }
+.panel-letter.reading .paper-card { opacity: 1; transform: none; pointer-events: auto; transition: opacity .6s .35s, transform .7s .35s cubic-bezier(.2,.9,.25,1); }
 .panel-letter.reading .env { opacity: 0; transform: translateY(-40px) scale(.85); pointer-events: none; transition-delay: .25s; }
 .panel-finale { top: auto; bottom: max(28px, 6vh); transform: translate(-50%, 0); width: min(760px, calc(100% - 40px)); text-align: center; }
 .finale-title { white-space: nowrap; font-family: var(--f-script); font-weight: 700; color: var(--sun); font-size: min(8.4vw, 96px); line-height: 1; margin: 0 0 12px; text-shadow: 0 0 30px rgba(245,194,59,.4); }
@@ -1905,7 +1905,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 8px 24px; fle
   const DOT_AT = [0, .30, .58, .9];
   const dots = [...document.querySelectorAll('.chapters button')];
   const sstep = (a, b, v) => { const k = Math.max(0, Math.min(1, (v - a) / (b - a))); return k * k * (3 - 2 * k); };
-  let letterOpen = false, fired = false, lastChapter = -1;
+  let letterOpen = false, fired = false, lastChapter = -1, pS = 0;
   function setLetter(open) {
     letterOpen = open;
     envBtn.classList.toggle('open', open);
@@ -1922,7 +1922,11 @@ footer .wrap { display: flex; justify-content: space-between; gap: 8px 24px; fle
     window.scrollTo({ top: top + DOT_AT[i] * (journey.offsetHeight - window.innerHeight) + 2, behavior: reduce ? 'auto' : 'smooth' });
   }));
   function updateJourney() {
-    const p = journeyProgress();
+    // mọi chuyển động đuổi theo vị trí cuộn một cách êm, nên vuốt nhanh hay vuốt ngược đều mượt
+    const raw = journeyProgress();
+    pS += (raw - pS) * (reduce ? 1 : .12);
+    if (Math.abs(raw - pS) < .0004) pS = raw;
+    const p = pS;
     journeyP = p;
     enterP = sstep(.015, .16, p);
     const fadeIntro = 1 - sstep(0, .07, p);
@@ -1949,7 +1953,11 @@ footer .wrap { display: flex; justify-content: space-between; gap: 8px 24px; fle
     if (!letterOpen && p > .53 && p < .74) setLetter(true);
     if (letterOpen && (p < .47)) setLetter(false);
     if (!fired && p > .84) { fired = true; celebrate(); }
-    if (fired && p < .7) fired = false;
+    if (fired && p < .7) {
+      fired = false;
+      // quay ngược khỏi phần pháo hoa: dừng các phát chưa bắn, để tàn pháo tắt dần
+      showTimers.forEach(clearTimeout); showTimers = []; rockets.length = 0; showEnd = 0;
+    }
     ambientFireworks(p);
     bouquetTick(p);
     const ch = p < .16 ? 0 : p < .44 ? 1 : p < .76 ? 2 : 3;
